@@ -7,6 +7,10 @@ import platform
 import sys
 import vgamepad as vg
 
+baud = 115200
+prev_angle = None
+ANGLE_THRESHOLD = 1
+
 try:
     from vgamepad import VX360Gamepad
     HAS_GAMEPAD = True
@@ -17,23 +21,14 @@ except ImportError as e:
 
 # Detect platform
 current_platform = platform.system()
-
 keyboard = Controller()
 
 # Set serial port for each platform
 if current_platform == "Windows":
     port = 'COM5'
-elif current_platform == "Darwin":
-    port = '/dev/tty.usbmodemXXXX'  # Replace with actual macOS port
-elif current_platform == "Linux":
-    port = '/dev/ttyUSB0'  # Common for Arduino/USB on Linux
 else:
     print("Unsupported platform")
     sys.exit()
-
-baud = 115200
-prev_angle = None
-ANGLE_THRESHOLD = 1
 
 def apply_response_curve(value, exponent=2.0):
     sign = 1 if value >= 0 else -1
@@ -41,7 +36,9 @@ def apply_response_curve(value, exponent=2.0):
     curved = normalized ** exponent
     return int(sign * curved * 32767)
 
-# Joystick setup based on platform
+def map_potentiometer_to_angle(pot_value, in_min=25, in_max=1010, out_min=-180, out_max=180):
+    return (pot_value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
 if current_platform == "Windows" and HAS_GAMEPAD:
     gamepad = VX360Gamepad()
     def handle_joystick_input(angle, magnitude):
@@ -60,11 +57,6 @@ else:
     def handle_joystick_input(pot_value):
         angle = map_potentiometer_to_angle(pot_value)
 
-# Map potentiometer to angle range
-def map_potentiometer_to_angle(pot_value, in_min=25, in_max=1010, out_min=-180, out_max=180):
-    return (pot_value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-
-# Serial connection
 def connect_serial():
     while True:
         try:
@@ -76,10 +68,8 @@ def connect_serial():
             print("Retrying in 3 seconds...")
             time.sleep(3)
 
-
 ser = connect_serial()
 
-# Loading animation
 for i in range(0, 3):
     print("Loading" + "." * i, end="\r")
     time.sleep(1)
@@ -103,7 +93,7 @@ button_actions = {
     "Button7": lambda: tap_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER),  # LB
     "Button8": lambda: tap_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER), # RB
     "upShift": lambda: tap_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER), # RB
-    "downShift": lambda: tap_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER) # LB
+    "downShift": lambda: tap_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER) # LB
 }
 
 # main loop
@@ -118,7 +108,7 @@ while True:
 
             if matched_key:
                 try:
-                    button_actions[matched_key]()  # Call the bound function
+                    button_actions[matched_key]()
                 except Exception as e:
                     print(f"Error executing action for {matched_key}: {e}")
             else:
