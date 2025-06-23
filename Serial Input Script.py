@@ -17,7 +17,6 @@ try:
 except ImportError as e:
     print(e)
     exit()
-    HAS_GAMEPAD = False
 
 # Detect platform
 current_platform = platform.system()
